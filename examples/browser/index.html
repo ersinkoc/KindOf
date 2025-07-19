@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@oxog/kindof - Browser Example</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    .container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .test-area {
+      margin: 20px 0;
+    }
+    input, button {
+      padding: 8px 12px;
+      margin: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      border: none;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .result {
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-family: 'Courier New', monospace;
+    }
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .log-entry {
+      margin: 5px 0;
+      padding: 5px;
+      background-color: #f8f9fa;
+      border-left: 3px solid #007bff;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>@oxog/kindof - Browser Example</h1>
+  
+  <div class="container">
+    <h2>Interactive Type Detection</h2>
+    <div class="test-area">
+      <input type="text" id="testInput" placeholder="Enter any value (e.g., 42, 'hello', true)" />
+      <button onclick="detectType()">Detect Type</button>
+      <div id="typeResult" class="result"></div>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>Schema Validation</h2>
+    <div class="test-area">
+      <textarea id="jsonInput" rows="5" cols="50" placeholder="Enter JSON object to validate">{
+  "name": "John",
+  "age": 30,
+  "email": "john@example.com"
+}</textarea>
+      <button onclick="validateJSON()">Validate Schema</button>
+      <div id="validationResult" class="result"></div>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>Type Conversion</h2>
+    <div class="test-area">
+      <input type="text" id="convertInput" placeholder="Enter value to convert" value="42" />
+      <select id="targetType">
+        <option value="string">String</option>
+        <option value="number">Number</option>
+        <option value="boolean">Boolean</option>
+        <option value="array">Array</option>
+        <option value="object">Object</option>
+      </select>
+      <button onclick="convertType()">Convert</button>
+      <div id="conversionResult" class="result"></div>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>Live Examples</h2>
+    <button onclick="runExamples()">Run All Examples</button>
+    <div id="exampleLog"></div>
+  </div>
+
+  <!-- Load the UMD build -->
+  <script src="../../dist/kindof.umd.js"></script>
+  
+  <script>
+    // Access the library from the global KindOf object
+    const { kindOf, isType, validateSchema, coerceType, inspect, createKindOfInstance } = KindOf;
+
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('exampleLog');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.textContent = message;
+      logDiv.appendChild(entry);
+    }
+
+    function detectType() {
+      const input = document.getElementById('testInput').value;
+      const resultDiv = document.getElementById('typeResult');
+      
+      try {
+        // Try to parse the input
+        let value;
+        if (input === 'undefined') {
+          value = undefined;
+        } else if (input === 'null') {
+          value = null;
+        } else if (input === 'true' || input === 'false') {
+          value = input === 'true';
+        } else if (!isNaN(input) && input !== '') {
+          value = parseFloat(input);
+        } else if (input.startsWith('[') && input.endsWith(']')) {
+          value = JSON.parse(input);
+        } else if (input.startsWith('{') && input.endsWith('}')) {
+          value = JSON.parse(input);
+        } else {
+          value = input;
+        }
+        
+        const type = kindOf(value);
+        resultDiv.className = 'result success';
+        resultDiv.innerHTML = `
+          <strong>Value:</strong> ${inspect(value)}<br>
+          <strong>Type:</strong> ${type}<br>
+          <strong>Is Primitive:</strong> ${['string', 'number', 'boolean', 'null', 'undefined', 'symbol', 'bigint'].includes(type)}<br>
+          <strong>Is Collection:</strong> ${['array', 'map', 'set', 'weakmap', 'weakset'].includes(type)}
+        `;
+      } catch (error) {
+        resultDiv.className = 'result error';
+        resultDiv.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    function validateJSON() {
+      const input = document.getElementById('jsonInput').value;
+      const resultDiv = document.getElementById('validationResult');
+      
+      try {
+        const data = JSON.parse(input);
+        
+        // Define a schema
+        const schema = {
+          name: 'string',
+          age: 'number',
+          email: 'string',
+          tags: ['string']  // Optional array of strings
+        };
+        
+        const result = validateSchema(data, schema, { partial: true });
+        
+        if (result.valid) {
+          resultDiv.className = 'result success';
+          resultDiv.innerHTML = '<strong>✓ Valid!</strong> The object matches the schema.';
+        } else {
+          resultDiv.className = 'result error';
+          resultDiv.innerHTML = '<strong>✗ Invalid:</strong><br>' + 
+            result.errors.map(err => `• ${err.path}: ${err.message}`).join('<br>');
+        }
+      } catch (error) {
+        resultDiv.className = 'result error';
+        resultDiv.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    function convertType() {
+      const input = document.getElementById('convertInput').value;
+      const targetType = document.getElementById('targetType').value;
+      const resultDiv = document.getElementById('conversionResult');
+      
+      try {
+        const converted = coerceType(input, targetType);
+        resultDiv.className = 'result success';
+        resultDiv.innerHTML = `
+          <strong>Original:</strong> ${inspect(input)} (${kindOf(input)})<br>
+          <strong>Converted:</strong> ${inspect(converted)} (${kindOf(converted)})
+        `;
+      } catch (error) {
+        resultDiv.className = 'result error';
+        resultDiv.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    function runExamples() {
+      const logDiv = document.getElementById('exampleLog');
+      logDiv.innerHTML = ''; // Clear previous logs
+      
+      log('=== Basic Type Detection ===');
+      log(`kindOf(42): ${kindOf(42)}`);
+      log(`kindOf("hello"): ${kindOf("hello")}`);
+      log(`kindOf(true): ${kindOf(true)}`);
+      log(`kindOf(null): ${kindOf(null)}`);
+      log(`kindOf(undefined): ${kindOf(undefined)}`);
+      log(`kindOf([]): ${kindOf([])}`);
+      log(`kindOf({}): ${kindOf({})}`);
+      log(`kindOf(new Date()): ${kindOf(new Date())}`);
+      log(`kindOf(/regex/): ${kindOf(/regex/)}`);
+      
+      log('\n=== Browser-specific Types ===');
+      log(`kindOf(window): ${kindOf(window)}`);
+      log(`kindOf(document): ${kindOf(document)}`);
+      log(`kindOf(document.body): ${kindOf(document.body)}`);
+      log(`kindOf(new Event('click')): ${kindOf(new Event('click'))}`);
+      log(`kindOf(new Blob(['hello'])): ${kindOf(new Blob(['hello']))}`);
+      log(`kindOf(new File(['hello'], 'test.txt')): ${kindOf(new File(['hello'], 'test.txt'))}`);
+      
+      log('\n=== Type Guards ===');
+      const testValue = [1, 2, 3];
+      if (isType(testValue, 'array')) {
+        log(`Array detected with length: ${testValue.length}`);
+      }
+      
+      log('\n=== Custom Types with Plugin System ===');
+      const kindOfExtended = createKindOfInstance();
+      
+      // Add custom type for email validation
+      kindOfExtended.defineType('email', (value) => {
+        return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      });
+      
+      // Add custom type for URL validation
+      kindOfExtended.defineType('url', (value) => {
+        try {
+          new URL(value);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      
+      log(`kindOfExtended("test@example.com"): ${kindOfExtended("test@example.com")}`);
+      log(`kindOfExtended("not-an-email"): ${kindOfExtended("not-an-email")}`);
+      log(`kindOfExtended("https://example.com"): ${kindOfExtended("https://example.com")}`);
+      
+      log('\n✅ All examples completed!');
+    }
+
+    // Run examples on page load
+    window.addEventListener('load', () => {
+      console.log('@oxog/kindof loaded successfully!');
+      console.log('Available methods:', Object.keys(KindOf));
+    });
+  </script>
+</body>
+</html>

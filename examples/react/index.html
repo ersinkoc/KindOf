@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@oxog/kindof - React Example</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="../../dist/kindof.umd.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { 
+      kindOf, 
+      isType, 
+      validateSchema, 
+      coerceType, 
+      getDetailedType,
+      createKindOfInstance 
+    } = KindOf;
+    
+    // Custom hook for type validation
+    function useTypeValidation(value, expectedType) {
+      const [isValid, setIsValid] = React.useState(false);
+      const [actualType, setActualType] = React.useState('');
+      
+      React.useEffect(() => {
+        const type = kindOf(value);
+        setActualType(type);
+        setIsValid(type === expectedType);
+      }, [value, expectedType]);
+      
+      return { isValid, actualType };
+    }
+    
+    // Form validation hook
+    function useFormValidation(schema) {
+      const [errors, setErrors] = React.useState({});
+      
+      const validate = (data) => {
+        const result = validateSchema(data, schema);
+        if (!result.valid) {
+          const errorMap = {};
+          result.errors.forEach(error => {
+            errorMap[error.path] = error.message;
+          });
+          setErrors(errorMap);
+          return false;
+        }
+        setErrors({});
+        return true;
+      };
+      
+      return { errors, validate };
+    }
+    
+    // Type detector component
+    function TypeDetector({ value }) {
+      const type = kindOf(value);
+      const details = getDetailedType(value);
+      
+      const getTypeColor = (type) => {
+        const colors = {
+          string: '#22c55e',
+          number: '#3b82f6',
+          boolean: '#f59e0b',
+          array: '#8b5cf6',
+          object: '#ec4899',
+          null: '#6b7280',
+          undefined: '#6b7280',
+          function: '#14b8a6'
+        };
+        return colors[type] || '#6b7280';
+      };
+      
+      return (
+        <div style={{ 
+          padding: '10px', 
+          border: '1px solid #e5e7eb', 
+          borderRadius: '6px',
+          backgroundColor: '#f9fafb' 
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ 
+              color: getTypeColor(type), 
+              fontWeight: 'bold',
+              fontSize: '18px' 
+            }}>
+              {type}
+            </span>
+            {details.isPrimitive && (
+              <span style={{ 
+                fontSize: '12px', 
+                backgroundColor: '#dbeafe', 
+                padding: '2px 6px', 
+                borderRadius: '4px' 
+              }}>
+                primitive
+              </span>
+            )}
+            {details.isBuiltIn && (
+              <span style={{ 
+                fontSize: '12px', 
+                backgroundColor: '#fef3c7', 
+                padding: '2px 6px', 
+                borderRadius: '4px' 
+              }}>
+                built-in
+              </span>
+            )}
+          </div>
+          <div style={{ marginTop: '8px', fontSize: '14px', color: '#6b7280' }}>
+            Constructor: {details.constructor}
+          </div>
+        </div>
+      );
+    }
+    
+    // Main App component
+    function App() {
+      const [inputValue, setInputValue] = React.useState('');
+      const [testValue, setTestValue] = React.useState('Hello, React!');
+      const [formData, setFormData] = React.useState({
+        name: '',
+        email: '',
+        age: '',
+        subscribe: false
+      });
+      
+      // Form validation schema
+      const formSchema = {
+        name: 'string',
+        email: 'string',
+        age: 'number',
+        subscribe: 'boolean'
+      };
+      
+      const { errors, validate } = useFormValidation(formSchema);
+      const { isValid, actualType } = useTypeValidation(testValue, 'string');
+      
+      // Create custom type detector
+      const [customKindOf] = React.useState(() => {
+        const instance = createKindOfInstance();
+        
+        // Add React-specific type detection
+        instance.defineType('react-element', (value) => {
+          return React.isValidElement(value);
+        });
+        
+        instance.defineType('react-component', (value) => {
+          return typeof value === 'function' && (
+            value.prototype?.isReactComponent || 
+            String(value).includes('useState') ||
+            String(value).includes('useEffect')
+          );
+        });
+        
+        return instance;
+      });
+      
+      const handleInputChange = (e) => {
+        const value = e.target.value;
+        setInputValue(value);
+        
+        try {
+          // Try to parse as JSON
+          const parsed = JSON.parse(value);
+          setTestValue(parsed);
+        } catch {
+          // If not JSON, use as string
+          setTestValue(value);
+        }
+      };
+      
+      const handleFormSubmit = (e) => {
+        e.preventDefault();
+        
+        // Coerce types before validation
+        const coercedData = {
+          ...formData,
+          age: coerceType(formData.age, 'number')
+        };
+        
+        if (validate(coercedData)) {
+          alert('Form is valid! Check console for details.');
+          console.log('Submitted data:', coercedData);
+          console.log('Data types:', {
+            name: kindOf(coercedData.name),
+            email: kindOf(coercedData.email),
+            age: kindOf(coercedData.age),
+            subscribe: kindOf(coercedData.subscribe)
+          });
+        }
+      };
+      
+      // Test values for demonstration
+      const testValues = [
+        { label: 'String', value: 'Hello, World!' },
+        { label: 'Number', value: 42 },
+        { label: 'Boolean', value: true },
+        { label: 'Array', value: [1, 2, 3] },
+        { label: 'Object', value: { key: 'value' } },
+        { label: 'Date', value: new Date() },
+        { label: 'RegExp', value: /test/g },
+        { label: 'Map', value: new Map([['key', 'value']]) },
+        { label: 'Set', value: new Set([1, 2, 3]) },
+        { label: 'Promise', value: Promise.resolve('async') },
+        { label: 'React Element', value: React.createElement('div', null, 'React Element') },
+        { label: 'React Component', value: App }
+      ];
+      
+      return (
+        <div style={{ 
+          maxWidth: '800px', 
+          margin: '0 auto', 
+          padding: '20px',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        }}>
+          <h1 style={{ color: '#1f2937', marginBottom: '24px' }}>
+            @oxog/kindof - React Example
+          </h1>
+          
+          {/* Interactive Type Detector */}
+          <section style={{ marginBottom: '32px' }}>
+            <h2 style={{ color: '#374151', marginBottom: '16px' }}>
+              Interactive Type Detector
+            </h2>
+            <input
+              type="text"
+              value={inputValue}
+              onChange={handleInputChange}
+              placeholder="Enter any value or JSON..."
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '16px',
+                marginBottom: '16px'
+              }}
+            />
+            <TypeDetector value={testValue} />
+            <div style={{ marginTop: '8px', fontSize: '14px', color: '#6b7280' }}>
+              Validation: {isValid ? '✓' : '✗'} Expected string, got {actualType}
+            </div>
+          </section>
+          
+          {/* Type Examples */}
+          <section style={{ marginBottom: '32px' }}>
+            <h2 style={{ color: '#374151', marginBottom: '16px' }}>
+              Type Detection Examples
+            </h2>
+            <div style={{ display: 'grid', gap: '12px' }}>
+              {testValues.map((item, index) => (
+                <div key={index} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '16px',
+                  padding: '12px',
+                  backgroundColor: '#f9fafb',
+                  borderRadius: '6px'
+                }}>
+                  <span style={{ 
+                    minWidth: '120px', 
+                    fontWeight: '500',
+                    color: '#4b5563'
+                  }}>
+                    {item.label}:
+                  </span>
+                  <span style={{ 
+                    fontFamily: 'monospace',
+                    color: '#059669'
+                  }}>
+                    {kindOf(item.value)}
+                  </span>
+                  {customKindOf(item.value) !== kindOf(item.value) && (
+                    <span style={{ 
+                      fontFamily: 'monospace',
+                      color: '#7c3aed'
+                    }}>
+                      (custom: {customKindOf(item.value)})
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+          
+          {/* Form Validation */}
+          <section>
+            <h2 style={{ color: '#374151', marginBottom: '16px' }}>
+              Form Validation Example
+            </h2>
+            <form onSubmit={handleFormSubmit} style={{
+              backgroundColor: '#f9fafb',
+              padding: '20px',
+              borderRadius: '8px'
+            }}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
+                  Name:
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    border: `1px solid ${errors.name ? '#ef4444' : '#d1d5db'}`,
+                    borderRadius: '4px'
+                  }}
+                />
+                {errors.name && (
+                  <div style={{ color: '#ef4444', fontSize: '14px', marginTop: '4px' }}>
+                    {errors.name}
+                  </div>
+                )}
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
+                  Email:
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    border: `1px solid ${errors.email ? '#ef4444' : '#d1d5db'}`,
+                    borderRadius: '4px'
+                  }}
+                />
+                {errors.email && (
+                  <div style={{ color: '#ef4444', fontSize: '14px', marginTop: '4px' }}>
+                    {errors.email}
+                  </div>
+                )}
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
+                  Age:
+                </label>
+                <input
+                  type="text"
+                  value={formData.age}
+                  onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    border: `1px solid ${errors.age ? '#ef4444' : '#d1d5db'}`,
+                    borderRadius: '4px'
+                  }}
+                />
+                {errors.age && (
+                  <div style={{ color: '#ef4444', fontSize: '14px', marginTop: '4px' }}>
+                    {errors.age}
+                  </div>
+                )}
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.subscribe}
+                    onChange={(e) => setFormData({ ...formData, subscribe: e.target.checked })}
+                  />
+                  <span>Subscribe to newsletter</span>
+                </label>
+              </div>
+              
+              <button
+                type="submit"
+                style={{
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  padding: '8px 16px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '16px',
+                  cursor: 'pointer'
+                }}
+              >
+                Submit Form
+              </button>
+            </form>
+          </section>
+        </div>
+      );
+    }
+    
+    // Render the app
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>

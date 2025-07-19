@@ -1,0 +1,72 @@
+# Source files
+src/
+tests/
+scripts/
+examples/
+
+# Configuration files
+.eslintrc.json
+.prettierrc
+jest.config.js
+rollup.config.js
+tsconfig.json
+tsconfig.build.json
+.editorconfig
+.gitignore
+.npmignore
+
+# CI/CD
+.github/
+.circleci/
+.travis.yml
+.gitlab-ci.yml
+
+# Development files
+*.log
+*.tgz
+.DS_Store
+node_modules/
+coverage/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation source
+docs/
+*.md
+!README.md
+!LICENSE
+
+# Test files
+__tests__/
+test/
+*.test.ts
+*.spec.ts
+*.test.js
+*.spec.js
+
+# Build artifacts that shouldn't be published
+*.map.gz
+dist/**/*.test.*
+dist/**/*.spec.*
+
+# Temporary files
+tmp/
+temp/
+.cache/
+.tmp/
+
+# Benchmarks
+benchmark/
+benchmarks/
+perf/
+
+# Examples (already in separate folder)
+example/
+
+# Any local environment files
+.env
+.env.*
+!.env.example
