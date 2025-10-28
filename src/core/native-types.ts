@@ -50,7 +50,12 @@ function getFunctionType(fn: (...args: any[]) => any): TypeName {
 }
 
 function getObjectType(obj: object): TypeName {
-  const tag = toString.call(obj);
+  let tag: string;
+  try {
+    tag = toString.call(obj);
+  } catch (e) {
+    tag = '[object Object]'; // Fallback for objects with problematic toStringTag
+  }
   const mappedType = TYPE_TAG_MAP[tag];
   
   if (mappedType) {
@@ -75,9 +80,13 @@ function getObjectType(obj: object): TypeName {
   }
   
   if (tag === '[object Object]') {
-    const customTag = (obj as any)[toStringTag];
-    if (typeof customTag === 'string') {
-      return customTag.toLowerCase() as TypeName;
+    try {
+      const customTag = (obj as any)[toStringTag];
+      if (typeof customTag === 'string') {
+        return customTag.toLowerCase() as TypeName;
+      }
+    } catch (e) {
+      // Ignore error and fallback to other checks
     }
     
     const ctor = obj.constructor;

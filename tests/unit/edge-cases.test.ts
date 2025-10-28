@@ -8,7 +8,7 @@ import { validateSchema } from '../../src/validators/schema';
 
 describe('Edge Cases and Full Coverage', () => {
   describe('Native Types Edge Cases', () => {
-    it.skip('should handle errors in toStringTag getter', () => {
+    it('should handle errors in toStringTag getter', () => {
       const obj = {};
       Object.defineProperty(obj, Symbol.toStringTag, {
         get() { throw new Error('toStringTag error'); }
