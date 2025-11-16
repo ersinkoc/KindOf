@@ -105,13 +105,18 @@ export function getDetailedType(value: unknown): DetailedType {
     }
     
     isIterable = typeof obj[Symbol.iterator] === 'function';
-    isAsync = typeof obj[Symbol.asyncIterator] === 'function' || 
-              type === 'promise' || 
-              type === 'asyncfunction' || 
+    isAsync = typeof obj[Symbol.asyncIterator] === 'function' ||
+              type === 'promise' ||
+              type === 'asyncfunction' ||
               type === 'asyncgeneratorfunction';
-    
-    if (obj[Symbol.toStringTag]) {
-      customType = String(obj[Symbol.toStringTag]);
+
+    // Safely access Symbol.toStringTag - getter might throw
+    try {
+      if (obj[Symbol.toStringTag]) {
+        customType = String(obj[Symbol.toStringTag]);
+      }
+    } catch {
+      // Ignore errors from toStringTag getter
     }
     
     if (type === 'array') {

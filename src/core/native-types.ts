@@ -23,29 +23,40 @@ export function getNativeType(value: unknown): TypeName | null {
 }
 
 function getFunctionType(fn: (...args: any[]) => any): TypeName {
-  const fnString = fn.toString();
-  
-  if (/^class\s/.test(fnString)) {
-    return 'function';
+  // Try to get function string representation, but handle cases where toString() may throw
+  let fnString: string;
+  try {
+    fnString = fn.toString();
+  } catch {
+    // If toString() throws (e.g., for some native functions or proxies),
+    // fall back to constructor name check
+    fnString = '';
   }
-  
-  if (/^async\s*function\s*\*/.test(fnString) || /^async\s*\*/.test(fnString)) {
-    return 'asyncgeneratorfunction';
+
+  if (fnString) {
+    if (/^class\s/.test(fnString)) {
+      return 'function';
+    }
+
+    if (/^async\s*function\s*\*/.test(fnString) || /^async\s*\*/.test(fnString)) {
+      return 'asyncgeneratorfunction';
+    }
+
+    if (/^async\s/.test(fnString)) {
+      return 'asyncfunction';
+    }
+
+    if (/^function\s*\*/.test(fnString) || /^\*/.test(fnString)) {
+      return 'generatorfunction';
+    }
   }
-  
-  if (/^async\s/.test(fnString)) {
-    return 'asyncfunction';
-  }
-  
-  if (/^function\s*\*/.test(fnString) || /^\*/.test(fnString)) {
-    return 'generatorfunction';
-  }
-  
+
+  // Fallback to constructor name detection
   const ctorName = fn.constructor?.name;
   if (ctorName === 'AsyncFunction') return 'asyncfunction';
   if (ctorName === 'GeneratorFunction') return 'generatorfunction';
   if (ctorName === 'AsyncGeneratorFunction') return 'asyncgeneratorfunction';
-  
+
   return 'function';
 }
 
@@ -67,7 +78,10 @@ function getObjectType(obj: object): TypeName {
     return 'buffer';
   }
   
-  if (typeof obj === 'object' && 'callee' in obj && typeof obj.callee === 'function') {
+  // Check for arguments object without accessing callee (strict mode safe)
+  // In strict mode, accessing arguments.callee throws TypeError
+  // Safe to check property existence with 'in', but not to access the value
+  if (typeof obj === 'object' && 'callee' in obj) {
     return 'arguments';
   }
   
