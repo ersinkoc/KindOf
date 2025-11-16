@@ -114,15 +114,30 @@ export function isAsyncIterable<T = unknown>(value: unknown): value is AsyncIter
 
 export function isConstructor(value: unknown): value is new (...args: any[]) => any {
   if (typeof value !== 'function') return false;
-  
-  try {
-    const testObj = {};
-    const BoundTest = value.bind(testObj);
-    new BoundTest();
-    return true;
-  } catch {
+
+  // WARNING: This function has limitations:
+  // - Constructing the function may have side effects
+  // - Arrow functions cannot be constructors but this may not detect all cases
+  // - Some native constructors may throw
+
+  // Check for arrow functions (they cannot be constructors)
+  // Arrow functions don't have prototype property
+  if (!('prototype' in value)) {
     return false;
   }
+
+  // Check constructor name as a heuristic
+  const name = value.constructor?.name;
+  if (name === 'Function' || name === 'GeneratorFunction') {
+    // Regular functions and generator functions can be constructors
+    // But we can't be 100% certain without calling new on them
+    // Return true as a best guess
+    return true;
+  }
+
+  // For other cases, we cannot reliably determine without side effects
+  // Return true if it has a prototype (likely a constructor)
+  return value.prototype !== undefined;
 }
 
 export function isThenable<T = unknown>(value: unknown): value is PromiseLike<T> {
@@ -159,40 +174,73 @@ export function isAsyncGenerator(value: unknown): value is AsyncGenerator {
 export function isGeneratorFunction(value: unknown): value is GeneratorFunction {
   if (typeof value !== 'function') return false;
   const name = value.constructor?.name;
-  return name === 'GeneratorFunction' || /^function\s*\*/.test(value.toString());
+  if (name === 'GeneratorFunction') return true;
+
+  // Fallback to toString check, but protect against functions where toString() may throw
+  try {
+    return /^function\s*\*/.test(value.toString());
+  } catch {
+    return false;
+  }
 }
 
 export function isAsyncFunction(value: unknown): value is (...args: any[]) => Promise<unknown> {
   if (typeof value !== 'function') return false;
   const name = value.constructor?.name;
-  return name === 'AsyncFunction' || /^async\s/.test(value.toString());
+  if (name === 'AsyncFunction') return true;
+
+  // Fallback to toString check, but protect against functions where toString() may throw
+  try {
+    return /^async\s/.test(value.toString());
+  } catch {
+    return false;
+  }
 }
 
 export function isAsyncGeneratorFunction(value: unknown): value is (...args: any[]) => AsyncGenerator {
   if (typeof value !== 'function') return false;
   const name = value.constructor?.name;
-  return name === 'AsyncGeneratorFunction' || /^async\s*function\s*\*/.test(value.toString());
-}
+  if (name === 'AsyncGeneratorFunction') return true;
 
-export function isProxy(value: unknown): value is object {
+  // Fallback to toString check, but protect against functions where toString() may throw
   try {
-    if (typeof value !== 'object' && typeof value !== 'function') return false;
-    if (value === null) return false;
-    
-    // Attempt to use proxy-specific behavior
-    const testHandler: ProxyHandler<object> = {
-      get() {
-        throw new Error('proxy trap');
-      }
-    };
-    
-    const proxy = new Proxy({}, testHandler);
-    const isProxyLike = Object.prototype.toString.call(value) === Object.prototype.toString.call(proxy);
-    
-    return isProxyLike;
+    return /^async\s*function\s*\*/.test(value.toString());
   } catch {
     return false;
   }
+}
+
+export function isProxy(value: unknown): value is object {
+  // NOTE: There is no reliable way to detect Proxies in JavaScript
+  // as they are designed to be transparent. This function uses heuristics
+  // that may produce false positives/negatives.
+
+  if (typeof value !== 'object' && typeof value !== 'function') {
+    return false;
+  }
+
+  if (value === null) {
+    return false;
+  }
+
+  try {
+    // Try using Object.prototype.toString - may return '[object Proxy]' in some engines
+    const tag = Object.prototype.toString.call(value);
+    if (tag === '[object Proxy]') {
+      return true;
+    }
+
+    // Check for explicit toStringTag set to 'Proxy'
+    const toStringTag = (value as any)[Symbol.toStringTag];
+    if (toStringTag === 'Proxy') {
+      return true;
+    }
+  } catch {
+    // Ignore errors
+  }
+
+  // Cannot reliably detect proxies - return false
+  return false;
 }
 
 // Error type guards

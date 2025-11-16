@@ -183,7 +183,7 @@ export function toError(value: unknown): Error | null {
 
 export function toFunction(value: unknown): ((...args: any[]) => any) | null {
   const type = kindOfCore(value);
-  
+
   switch (type) {
     case 'function':
     case 'asyncfunction':
@@ -191,12 +191,11 @@ export function toFunction(value: unknown): ((...args: any[]) => any) | null {
     case 'asyncgeneratorfunction':
       return value as (...args: any[]) => any;
     case 'string':
-      try {
-        // eslint-disable-next-line no-new-func, @typescript-eslint/no-implied-eval
-        return new Function('return ' + String(value)) as (...args: any[]) => any;
-      } catch {
-        return null;
-      }
+      // SECURITY: Removed string->function conversion using new Function()
+      // This was a code injection vulnerability similar to eval()
+      // If you need to create functions from strings, use a safe parser/compiler
+      // or explicitly use new Function() yourself with proper input validation
+      return null;
     default:
       return null;
   }
@@ -245,25 +244,34 @@ export function toBuffer(value: unknown): Buffer | null {
 
 export function toTypedArray<T extends ArrayBufferView>(
   value: unknown,
-  TypedArrayConstructor: new (buffer: ArrayBuffer) => T
+  TypedArrayConstructor: new (length: number) => T
 ): T | null {
   const type = kindOfCore(value);
-  
+
   switch (type) {
     case 'arraybuffer':
-      return new TypedArrayConstructor(value as ArrayBuffer);
+      // For ArrayBuffer, we need a different constructor signature
+      // Cast to any to work around TypeScript's constructor type limitations
+      return new (TypedArrayConstructor as any)(value as ArrayBuffer);
     case 'array': {
       const arr = value as number[];
-      const buffer = new ArrayBuffer(arr.length * 4);
-      const view = new TypedArrayConstructor(buffer);
+      // Create typed array directly from length, then populate
+      // This avoids hardcoding element size and lets the constructor handle it
+      const view = new TypedArrayConstructor(arr.length);
       for (let i = 0; i < arr.length; i++) {
         (view as any)[i] = arr[i];
       }
       return view;
     }
     default:
-      if (type.includes('array') && value instanceof ArrayBuffer) {
-        return new TypedArrayConstructor(value);
+      // Check if it's already a typed array or ArrayBuffer view
+      if (type.includes('array') && ArrayBuffer.isView(value)) {
+        const source = value as any;
+        const view = new TypedArrayConstructor(source.length);
+        for (let i = 0; i < source.length; i++) {
+          (view as any)[i] = source[i];
+        }
+        return view;
       }
       return null;
   }

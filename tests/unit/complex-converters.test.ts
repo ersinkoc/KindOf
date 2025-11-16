@@ -181,13 +181,14 @@ describe('Complex Type Converters', () => {
       expect(toFunction(genFn)).toBe(genFn);
     });
 
-    test('converts string to function', () => {
+    test('returns null for strings (security: removed eval-like behavior)', () => {
+      // SECURITY FIX: toFunction no longer converts strings to functions
+      // This was a code injection vulnerability (like eval)
       const fn = toFunction('42');
-      expect(fn).toBeInstanceOf(Function);
-      expect(fn?.()).toBe(42);
+      expect(fn).toBeNull();
     });
 
-    test('returns null for invalid string', () => {
+    test('returns null for non-function types', () => {
       expect(toFunction('invalid syntax [')).toBeNull();
       expect(toFunction(42)).toBeNull();
       expect(toFunction({})).toBeNull();
